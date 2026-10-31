@@ -21,6 +21,6 @@ def get_hsg9_prompt(query, search_context):
     4. **Structure**:
        - **# Title**: Formal title for the topic.
        - **## Overview & Core Principles**: Theoretical foundations and background theorems.
-       - **## 15 Distinct Solution Methods**: Detailed step-by-step presentation of all 15 methods applied to the representative problems, clearly numbered from Method 1 to Method 15.
+       - **## 50 Distinct Solution Methods**: Detailed step-by-step presentation of all 50 methods applied to the representative problems, clearly numbered from Method 1 to Method 50.
        - **## Comparative Insights & Summary**: A brief expert synthesis on when to apply each method effectively.
     '''
