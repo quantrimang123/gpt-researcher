@@ -19,6 +19,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install --upgrade langchain-google-genai google-genai
 
       - name: Run Researcher with Gemini
         env:
@@ -32,18 +33,20 @@ jobs:
           from gpt_researcher import GPTResearcher
 
           async def main():
-              os.environ['LLM_PROVIDER'] = 'google_genai'
-              os.environ['FAST_LLM'] = 'google_genai:gemini-1.5-flash'
-              os.environ['SMART_LLM'] = 'google_genai:gemini-1.5-pro'
-              
               query = 'Extract advanced mathematical methods and theorems'
               print(f'Starting research on: {query}')
               
+              # Cập nhật sang dòng model chuẩn mới nhất hiện tại
               researcher = GPTResearcher(
                   query=query, 
                   report_type='research_report', 
-                  report_format='markdown'
+                  report_format='markdown',
+                  llm_provider='google_genai',
+                  fast_llm='gemini-3.1-pro-preview',
+                  smart_llm='gemini-3.1-pro-preview',
+                  strategic_llm='gemini-3.1-pro-preview'
               )
+              
               await researcher.conduct_research()
               report = await researcher.write_report()
 
