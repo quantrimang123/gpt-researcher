@@ -23,6 +23,7 @@ jobs:
       - name: Run Researcher with Gemini
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
         run: |
           python -c "
@@ -31,7 +32,6 @@ jobs:
           from gpt_researcher import GPTResearcher
 
           async def main():
-              # Sử dụng google_genai theo đúng yêu cầu của phiên bản hiện tại
               os.environ['LLM_PROVIDER'] = 'google_genai'
               os.environ['FAST_LLM'] = 'google_genai:gemini-2.5-flash'
               os.environ['SMART_LLM'] = 'google_genai:gemini-2.5-pro'
