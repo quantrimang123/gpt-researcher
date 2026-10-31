@@ -1,0 +1,62 @@
+name: GPT-Researcher Gemini Run
+
+on:
+  workflow_dispatch:
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Researcher with Gemini
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+        run: |
+          python -c "
+          import asyncio
+          import os
+          from gpt_researcher import GPTResearcher
+
+          async def main():
+              # Cấu hình chuẩn cho Gemini trong GPT-Researcher
+              os.environ['LLM_PROVIDER'] = 'google'
+              os.environ['FAST_LLM'] = 'gemini-2.5-flash'
+              os.environ['SMART_LLM'] = 'gemini-2.5-pro'
+              
+              query = 'Extract advanced mathematical methods and theorems'
+              print(f'Starting research on: {query}')
+              
+              researcher = GPTResearcher(
+                  query=query, 
+                  report_type='research_report', 
+                  report_format='markdown'
+              )
+              await researcher.conduct_research()
+              report = await researcher.write_report()
+
+              os.makedirs('reports', exist_ok=True)
+              with open('reports/math_report.md', 'w', encoding='utf-8') as f:
+                  f.write(report)
+              print('Research completed successfully!')
+
+          asyncio.run(main())
+          "
+
+      - name: Upload Report Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mathematical-methods-report
+          path: reports/math_report.md
