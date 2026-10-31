@@ -31,10 +31,9 @@ jobs:
           from gpt_researcher import GPTResearcher
 
           async def main():
-              # Cấu hình chuẩn cho Gemini trong GPT-Researcher
               os.environ['LLM_PROVIDER'] = 'google'
-              os.environ['FAST_LLM'] = 'gemini-2.5-flash'
-              os.environ['SMART_LLM'] = 'gemini-2.5-pro'
+              os.environ['FAST_LLM'] = 'google:gemini-2.5-flash'
+              os.environ['SMART_LLM'] = 'google:gemini-2.5-pro'
               
               query = 'Extract advanced mathematical methods and theorems'
               print(f'Starting research on: {query}')
