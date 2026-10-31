@@ -4,14 +4,18 @@ from google import genai
 from duckduckgo_search import DDGS
 
 def main():
+    # Khởi tạo Gemini client chuẩn mới nhất
     client = genai.Client()
-    model_name = 'gemini-2.5-flash'
+    
+    # Sử dụng model dòng Flash mới nhất, tốc độ cao và dung lượng token lớn
+    model_name = 'gemini-3.8-flash'
 
-    # Đọc danh sách các chủ đề từ file topics.txt
+    # Kiểm tra xem file topics.txt có tồn tại không
     if not os.path.exists('topics.txt'):
-        print("Error: topics.txt not found!")
+        print("Error: topics.txt not found! Please create a topics.txt file.")
         return
 
+    # Đọc danh sách các chủ đề (bỏ qua dòng trống hoặc dòng chú thích bắt đầu bằng dấu #)
     with open('topics.txt', 'r', encoding='utf-8') as f:
         topics = [line.strip() for line in f if line.strip() and not line.startswith('#')]
 
@@ -24,7 +28,7 @@ def main():
     for idx, query in enumerate(topics, 1):
         print(f"\n[{idx}/{len(topics)}] Starting research on: {query}")
         
-        # Tìm kiếm web miễn phí qua DuckDuckGo
+        # 1. Tìm kiếm thông tin trên web miễn phí qua DuckDuckGo
         search_results = []
         try:
             with DDGS() as ddgs:
@@ -36,7 +40,7 @@ def main():
 
         search_context = '\n'.join(search_results)
 
-        # Tổng hợp báo cáo bằng Gemini
+        # 2. Xây dựng prompt để Gemini tổng hợp báo cáo
         prompt = f'''
         You are an expert research assistant. Based on the web search results below, write a comprehensive, detailed, and professional research report in Markdown format about: {query}
 
@@ -46,27 +50,30 @@ def main():
         Please format the output cleanly with an introduction, key concepts, technical details, and a conclusion.
         '''
 
+        # 3. Gọi Gemini tạo báo cáo
         try:
-            print('Generating research report with Gemini...')
+            print(f'Generating research report using {model_name}...')
             response = client.models.generate_content(
                 model=model_name,
                 contents=prompt,
             )
             report = response.text
 
-            # Đặt tên file theo thứ tự hoặc từ khóa gọn gàng
+            # Tạo tên file an toàn dựa trên từ khóa chủ đề
             safe_filename = "".join(c if c.isalnum() else "_" for c in query)[:40].lower()
             filename = f"reports/report_{idx}_{safe_filename}.md"
             
             with open(filename, 'w', encoding='utf-8') as f:
                 f.write(report)
-            print(f"Saved report to {filename}")
+            print(f"Successfully saved report to {filename}")
             
         except Exception as e:
             print(f"Gemini generation error for '{query}': {e}")
 
-        # Nghỉ nhẹ giữa các request để tránh chạm giới hạn tần suất
+        # Nghỉ nhẹ giữa các request để giữ nhịp ổn định cho API
         time.sleep(3)
+
+    print("\nAll research tasks completed successfully!")
 
 if __name__ == '__main__':
     main()
