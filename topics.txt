@@ -1,0 +1,3 @@
+Extract advanced mathematical methods and theorems
+P-versus-NP problem and modern cryptography applications
+Non-Euclidean geometry foundations and applications in physics
