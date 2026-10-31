@@ -33,14 +33,6 @@ jobs:
           GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python research.py
 
-      - name: Commit & Push report files back to repository
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add hsg9_reports/
-          git commit -m "Auto-generate HSG 9 math reports batch [skip ci]" || exit 0
-          git push
-
       - name: Upload All Reports as Artifact
         uses: actions/upload-artifact@v4
         with:
