@@ -1,3 +1,30 @@
-Extract advanced mathematical methods and theorems
-P-versus-NP problem and modern cryptography applications
-Non-Euclidean geometry foundations and applications in physics
+1. Phuong trinh nghiem nguyen - Phuong phap uoc so va phan nguyen
+2. Phuong trinh nghiem nguyen - Phuong phap chan va dong du thuc
+3. Phuong trinh nghiem nguyen - Ky thuat nhay Vieta va lui vo han
+4. Bat dang thuc - Phuong phap danh gia tu mau va Cauchy nguoc dau
+5. Bat dang thuc - Ky thuat chon diem roi trong AM-GM va Cauchy-Schwarz
+6. Bat dang thuc - Phuong phap chuan hoa va thuan nhat hoa (Homogenization)
+7. Bat dang thuc - Su dung ham so, dao ham va khao sat ham mot bien
+8. Bat dang thuc - Phuong phap tiep tuyen (Tangent Line Method)
+9. He phuong trinh dai so - Phuong phap cong dai so va dat an phu dang cap
+10. He phuong trinh dai so - He doi xung loai 1, loai 2 va phan xung
+11. He phuong trinh vo ty - Phuong phap lien hop va danh gia hai ve
+12. Can thuc va bieu thuc - Rut gon bieu thuc nhieu lop va cuc tri
+13. So hoc - Dinh ly Fermat nho, Euler va Wilson trong chia het
+14. So hoc - Tinh chat so chinh phương va nguyen to cung nhau
+15. So hoc - Ham phan nguyen va phan le trong bai toan so hoc
+16. Ham so va do thi - Tuong giao parabol, duong thang va dinh ly Viet nang cao
+17. Hinh hoc - Phuong phap dung hinh phu va chung minh ti le doan thang
+18. Hinh hoc - Phuong tich cua diem va truc dang phuong cua duong tron
+19. Hinh hoc - Tu giac noi tiep va cac bai toan goc, duong tron bang tiep
+20. Hinh hoc - Dinh ly Menelaus, Ceva va ung dung trong hinh phu
+21. Hinh hoc - Toa do hoa hinh hoc phang (Phuong phap Oxy)
+22. Hinh hoc - Cuc tri hinh học va bai toan quy tich diem
+23. To hop - Bai toan dem va nguyen ly Dirichlet (chuong bo cau)
+24. To hop - Nguyen ly bu tru, bai toan to mau va lat san
+25. Day so - He thuc truy hoi va tim cong thức tong quat lop 9
+26. Phuong trinh vo ty - Phuong phap luong giac hoa
+27. Da thuc - Nghiem cua da thuc, dinh ly Bezout va luoc do Horner
+28. Da thuc - Xac dinh da thuc thoa man dieu kien cho truoc
+29. Toan roi rac - Bat bien va don bien trong bai toan so hoc va to hop
+30. Toan tong hop - Ket hợp dai so, hinh học va so hoc trong de thi HSG
