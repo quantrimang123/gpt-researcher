@@ -21,6 +21,8 @@ def get_client():
     return genai.Client(api_key=key)
 
 def main():
+    global current_key_idx  # Đưa global lên đầu hàm để tránh SyntaxError
+
     if not API_KEYS:
         print("Error: Không tìm thấy bất kỳ Gemini API Key nào trong Environment/Secrets!")
         return
@@ -99,7 +101,6 @@ def main():
                         err_msg = str(e)
                         if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg:
                             print(f"  └─ Key [{current_key_idx + 1}] hết quota (429). Chuyển sang Key tiếp theo...")
-                            global current_key_idx
                             if len(API_KEYS) > 1:
                                 current_key_idx = (current_key_idx + 1) % len(API_KEYS)
                                 break
