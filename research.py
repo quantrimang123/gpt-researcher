@@ -1,18 +1,43 @@
-# research.py
 import os
 import time
 from google import genai
 from ddgs import DDGS
 from prompt_template import get_hsg9_prompt
 
-def main():
-    # Khởi tạo Gemini client chuẩn mới nhất
-    client = genai.Client()
-    
-    # Sử dụng dòng model Flash mới nhất với context token siêu khủng
-    model_name = 'gemini-3.8-flash'
+API_KEYS = [
+    os.getenv('GEMINI_API_KEY'),
+    os.getenv('GEMINI_API_KEY_1'),
+    os.getenv('GEMINI_API_KEY_2'),
+    os.getenv('GEMINI_API_KEY_3'),
+]
+API_KEYS = [k for k in API_KEYS if k]
 
-    # Kiểm tra file topics.txt
+current_key_idx = 0
+
+def get_client():
+    if not API_KEYS:
+        return None
+    key = API_KEYS[current_key_idx]
+    return genai.Client(api_key=key)
+
+def rotate_key_and_retry():
+    global current_key_idx
+    if len(API_KEYS) > 1:
+        current_key_idx = (current_key_idx + 1) % len(API_KEYS)
+        print(f"⚠️ Hết Quota trên Key cũ! Tự động xoay vòng sang API Key [{current_key_idx + 1}/{len(API_KEYS)}]")
+        return get_client()
+    return None
+
+def main():
+    if not API_KEYS:
+        print("Error: Không tìm thấy bất kỳ Gemini API Key nào trong Environment/Secrets!")
+        return
+
+    print(f"Đã nạp thành công {len(API_KEYS)} API Key vào hệ thống xoay vòng.")
+    client = get_client()
+
+    MODELS = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-1.5-flash']
+
     if not os.path.exists('topics.txt'):
         print("Error: topics.txt not found! Please create a topics.txt file.")
         return
@@ -26,14 +51,26 @@ def main():
 
     os.makedirs('hsg9_reports', exist_ok=True)
 
+    pending_topics = []
     for idx, query in enumerate(topics, 1):
-        print(f"\n[{idx}/{len(topics)}] Starting deep research on: {query}")
+        safe_filename = "".join(c if c.isalnum() else "_" for c in query)[:40].lower()
+        filename = f"hsg9_reports/report_{idx:02d}_{safe_filename}.md"
+        if not os.path.exists(filename):
+            pending_topics.append((idx, query, filename))
 
-        # 1. Cào thông tin qua ddgs (tối ưu số lượng kết quả)
+    if not pending_topics:
+        print("Toàn bộ các chuyên đề trong topics.txt đã được hoàn thành xuất sắc!")
+        return
+
+    print(f"Tổng số chuyên đề còn lại cần xử lý: {len(pending_topics)}/{len(topics)}.\n")
+
+    for count, (idx, query, filename) in enumerate(pending_topics, 1):
+        print(f"\n[{count}/{len(pending_topics)}] Starting deep research on topic [{idx}/{len(topics)}]: {query}")
+
         search_results = []
         try:
             with DDGS() as ddgs:
-                for r in ddgs.text(query, max_results=12):
+                for r in ddgs.text(f"math olympiad hsg 9 {query}", max_results=12):
                     search_results.append(f"Title: {r.get('title')}\nSnippet: {r.get('body')}\n")
         except Exception as e:
             print(f"Search error for '{query}': {e}")
@@ -41,38 +78,14 @@ def main():
 
         search_context = '\n'.join(search_results)
 
-        # 2. Lấy prompt từ file prompt_template.py đã tách riêng
         prompt = get_hsg9_prompt(query, search_context)
 
-        # 3. Gọi Gemini tạo báo cáo với cơ chế thử lại an toàn
         success = False
-        for attempt in range(3):
-            try:
-                print(f'Generating max-token research report using {model_name} (Attempt {attempt+1})...')
-                response = client.models.generate_content(
-                    model=model_name,
-                    contents=prompt,
-                )
-                report = response.text
+        max_key_attempts = len(API_KEYS) + 1
+        key_attempt = 0
 
-                safe_filename = "".join(c if c.isalnum() else "_" for c in query)[:40].lower()
-                filename = f"hsg9_reports/report_{idx:02d}_{safe_filename}.md"
-
-                with open(filename, 'w', encoding='utf-8') as f:
-                    f.write(report)
-                print(f"Successfully saved max-tier report to {filename}")
-                success = True
-                break
-            except Exception as e:
-                print(f"Gemini generation error (Attempt {attempt+1}) for '{query}': {e}")
-                time.sleep(5)
-
-        if not success:
-            print(f"Failed to generate report for topic {idx} after 3 attempts.")
-
-        time.sleep(3)
-
-    print("\nAll research tasks completed successfully!")
-
-if __name__ == '__main__':
-    main()
+        while not success and key_attempt < max_key_attempts:
+            for model_name in MODELS:
+                if success: 
+                    break
+                
