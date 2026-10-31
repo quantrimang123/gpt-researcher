@@ -23,4 +23,5 @@ def get_hsg9_prompt(query, search_context):
        - **## Overview & Core Principles**: Theoretical foundations.
        - **## Methodological Breakdown**: Detailed step-by-step presentation of diverse solution methods.
        - **## Representative Master Problems & Solutions**: Fully solved problems with multiple approaches compared side-by-side.
+    5. 15 ways to solve 
     '''
