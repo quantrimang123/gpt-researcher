@@ -16,7 +16,7 @@ def get_hsg9_prompt(query, search_context):
     3. **LaTeX Rigor (Crucial)**: 
        - Every single mathematical expression, variable, equation, or theorem MUST be wrapped in standard LaTeX syntax.
        - Use inline math with single dollar signs (e.g., $x^2 + y^2 \\geq 2xy$) and block equations with double dollar signs:
-         $$\\frac{a}{b} + \\frac{b}{a} \\ge 2$$
+         $$\\frac{{a}}{{b}} + \\frac{{b}}{{a}} \\ge 2$$
        - Do not use plain text for math symbols.
     4. **Structure**:
        - **# Title**: Formal title for the topic.
