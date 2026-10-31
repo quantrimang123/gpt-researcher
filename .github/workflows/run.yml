@@ -31,5 +31,5 @@ jobs:
       - name: Upload All Reports as Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: all-research-reports
-          path: reports/
+          name: hsg9-math-reports
+          path: hsg9_reports/   # <-- ĐÃ SỬA TỪ 'reports/' THÀNH 'hsg9_reports/' CHO KHỚP VỚI SCRIPT PYTHON
