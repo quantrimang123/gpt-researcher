@@ -32,19 +32,21 @@ jobs:
           from gpt_researcher import GPTResearcher
 
           async def main():
+              # Cấu hình toàn bộ qua biến môi trường để tránh lỗi xung đột tham số
+              os.environ['LLM_PROVIDER'] = 'google_genai'
+              os.environ['FAST_LLM'] = 'google_genai:gemini-3.1-pro-preview'
+              os.environ['SMART_LLM'] = 'google_genai:gemini-3.1-pro-preview'
+              os.environ['STRATEGIC_LLM'] = 'google_genai:gemini-3.1-pro-preview'
+              os.environ['RETRIEVER'] = 'duckduckgo'
+              
               query = 'Extract advanced mathematical methods and theorems'
               print(f'Starting research on: {query}')
               
-              # Cấu hình dùng DuckDuckGo làm retriever và Gemini cho phần xử lý ngôn ngữ
+              # Chỉ khởi tạo với query và report thuần túy, tránh truyền trùng lặp tham số
               researcher = GPTResearcher(
                   query=query, 
                   report_type='research_report', 
-                  report_format='markdown',
-                  retriever='duckduckgo',
-                  llm_provider='google_genai',
-                  fast_llm='gemini-3.1-pro-preview',
-                  smart_llm='gemini-3.1-pro-preview',
-                  strategic_llm='gemini-3.1-pro-preview'
+                  report_format='markdown'
               )
               
               await researcher.conduct_research()
