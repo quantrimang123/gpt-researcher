@@ -8,7 +8,7 @@ API_KEYS = [
     os.getenv('GEMINI_API_KEY'),
     os.getenv('GEMINI_API_KEY_1'),
     os.getenv('GEMINI_API_KEY_2'),
-    os.getenv('GEMINI_API_KEY_3'),
+    os.getenv('GEMINI_API_KEY_3'],
 ]
 API_KEYS = [k for k in API_KEYS if k]
 
@@ -21,7 +21,7 @@ def get_client():
     return genai.Client(api_key=key)
 
 def main():
-    global current_key_idx  # Đưa global lên đầu hàm để tránh SyntaxError
+    global current_key_idx
 
     if not API_KEYS:
         print("Error: Không tìm thấy bất kỳ Gemini API Key nào trong Environment/Secrets!")
@@ -29,7 +29,8 @@ def main():
 
     print(f"Đã nạp thành công {len(API_KEYS)} API Key. Bắt đầu hệ thống tự động tìm kiếm và nghiên cứu...")
     
-    MODELS = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-1.5-flash']
+    # Chỉ sử dụng model chuẩn hiện hành, loại bỏ hoàn toàn các model cũ gây lỗi 404
+    MODELS = ['gemini-3.8-flash']
 
     if not os.path.exists('topics.txt'):
         print("Error: topics.txt not found!")
@@ -84,9 +85,9 @@ def main():
                 if success:
                     break
 
-                for attempt in range(1, 3):
+                for attempt in range(1, 4):
                     try:
-                        print(f"Đang gọi model [{model_name}] bằng Key [{current_key_idx + 1}]...")
+                        print(f"Đang gọi model [{model_name}] bằng Key [{current_key_idx + 1}] (Lần thử {attempt})...")
                         response = client.models.generate_content(
                             model=model_name,
                             contents=prompt,
@@ -105,7 +106,7 @@ def main():
                                 current_key_idx = (current_key_idx + 1) % len(API_KEYS)
                                 break
                             else:
-                                print("  └─ Chỉ có 1 Key duy nhất và đã hết hạn mức!")
+                                print("  └─ Đã hết hạn mức Key duy nhất!")
                                 time.sleep(10)
                         elif "503" in err_msg or "UNAVAILABLE" in err_msg:
                             print(f"  └─ Server quá tải (503). Thử lại sau {attempt * 5}s...")
