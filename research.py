@@ -1,7 +1,9 @@
+# research.py
 import os
 import time
 from google import genai
-from duckduckgo_search import DDGS
+from ddgs import DDGS
+from prompt_template import get_hsg9_prompt
 
 def main():
     # Khởi tạo Gemini client chuẩn mới nhất
@@ -22,12 +24,12 @@ def main():
         print("No topics found in topics.txt")
         return
 
-    os.makedirs('reports', exist_ok=True)
+    os.makedirs('hsg9_reports', exist_ok=True)
 
     for idx, query in enumerate(topics, 1):
         print(f"\n[{idx}/{len(topics)}] Starting deep research on: {query}")
-        
-        # 1. Cào tối đa thông tin trên web qua DuckDuckGo (lấy nhiều kết quả hơn để nạp vào context khủng)
+
+        # 1. Cào thông tin qua ddgs (tối ưu số lượng kết quả)
         search_results = []
         try:
             with DDGS() as ddgs:
@@ -35,42 +37,38 @@ def main():
                     search_results.append(f"Title: {r.get('title')}\nSnippet: {r.get('body')}\n")
         except Exception as e:
             print(f"Search error for '{query}': {e}")
-            continue
+            search_results = ["No external search results. Relying on internal expert math knowledge."]
 
         search_context = '\n'.join(search_results)
 
-        # 2. Ép prompt hoàn toàn bằng tiếng Anh chuyên sâu để đạt chất lượng tối đa
-        prompt = f'''
-        You are an elite principal research scientist and mathematician. 
-        Based on the comprehensive web search results below, write an exhaustive, highly rigorous, and professional research report in Markdown format about: {query}
+        # 2. Lấy prompt từ file prompt_template.py đã tách riêng
+        prompt = get_hsg9_prompt(query, search_context)
 
-        Web Search Results:
-        {search_context}
+        # 3. Gọi Gemini tạo báo cáo với cơ chế thử lại an toàn
+        success = False
+        for attempt in range(3):
+            try:
+                print(f'Generating max-token research report using {model_name} (Attempt {attempt+1})...')
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                )
+                report = response.text
 
-        Requirements for the report:
-        - Written entirely in professional, academic English.
-        - Deep technical and theoretical breakdown (include mathematical formulations, algorithms, or core architectural concepts where applicable).
-        - Well-structured with clear headings, abstract, core methodology, key findings, and future implications.
-        '''
+                safe_filename = "".join(c if c.isalnum() else "_" for c in query)[:40].lower()
+                filename = f"hsg9_reports/report_{idx:02d}_{safe_filename}.md"
 
-        # 3. Gọi Gemini với model token khủng
-        try:
-            print(f'Generating max-token English research report using {model_name}...')
-            response = client.models.generate_content(
-                model=model_name,
-                contents=prompt,
-            )
-            report = response.text
+                with open(filename, 'w', encoding='utf-8') as f:
+                    f.write(report)
+                print(f"Successfully saved max-tier report to {filename}")
+                success = True
+                break
+            except Exception as e:
+                print(f"Gemini generation error (Attempt {attempt+1}) for '{query}': {e}")
+                time.sleep(5)
 
-            safe_filename = "".join(c if c.isalnum() else "_" for c in query)[:40].lower()
-            filename = f"reports/report_{idx}_{safe_filename}.md"
-            
-            with open(filename, 'w', encoding='utf-8') as f:
-                f.write(report)
-            print(f"Successfully saved max-tier report to {filename}")
-            
-        except Exception as e:
-            print(f"Gemini generation error for '{query}': {e}")
+        if not success:
+            print(f"Failed to generate report for topic {idx} after 3 attempts.")
 
         time.sleep(3)
 
