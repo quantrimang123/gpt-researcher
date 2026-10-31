@@ -58,12 +58,12 @@ jobs:
           async def main():
               query = os.environ.get('RESEARCH_QUERY', 'Mathematical methods research')
               r_type = os.environ.get('REPORT_TYPE', 'research_report')
-              
+
               print(f'🤖 Đang nghiên cứu đề tài: {query}')
               researcher = GPTResearcher(query=query, report_type=r_type, report_format='markdown')
               await researcher.conduct_research()
               report = await researcher.write_report()
-              
+
               os.makedirs('reports', exist_ok=True)
               with open('reports/output_report.md', 'w', encoding='utf-8') as f:
                   f.write(report)
