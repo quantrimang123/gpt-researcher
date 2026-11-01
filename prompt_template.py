@@ -1,26 +1,21 @@
-# prompt_template.py
-
 def get_hsg9_prompt(query, search_context):
-    return f'''
-    You are an elite National Mathematics Olympiad coach and master problem solver for Gifted Students (HSG Toán 9). 
-    Topic Focus: {query}
+    return f"""
+Bạn là chuyên gia soạn đề và giảng dạy Toán HSG 9 và chuyên Toán cấp 3 hàng đầu.
+Nhiệm vụ: Lập báo cáo bách khoa toàn thư siêu chi tiết về chuyên đề: "{query}".
 
-    Comprehensive Reference Context:
-    {search_context}
+🚨 QUY TẮC THIẾT QUÂN LUẬT - SỐ LƯỢNG BẮT BUỘC:
+1. Bạn BẮT BỘC phải trình bày ĐỦ VÀ ĐÚNG 50 PHƯƠNG PHÁP / KỸ THUẬT / DẠNG TOÁN RIÊNG BIỆT liên quan đến chuyên đề này.
+2. Đánh số thứ tự nghiêm ngặt từ 1 đến 50 (Từ ### Phương pháp 1 cho đến ### Phương pháp 50). Tuyệt đối không được dừng lại sớm, không được gộp nhóm lười biếng.
+3. Nếu chủ đề có ít phương pháp thực tế, hãy đào sâu các biến thể nâng cao, các bài toán cực trị, các trường hợp biên hoặc các bổ đề mở rộng để bù đắp đủ đúng 50 mục.
 
-    ---
+Cấu trúc chi tiết cho MỖI phương pháp trong 50 phương pháp:
+- **Tên phương pháp / Kỹ thuật cụ thể**
+- **Bản chất toán học & Công thức cốt lõi**
+- **Ví dụ minh họa chuẩn đề thi HSG 9 / Chuyên**
+- **Lời giải chi tiết từng bước**
 
-    ### STRICT REQUIREMENTS FOR THE REPORT:
-    1. **Academic Tone & Depth**: Written in professional academic English, structured with rigorous mathematical proofs, lemmas, and insights suitable for top-tier student competitions.
-    2. **Multi-Approach Generation (Max Exhaustion)**: Provide exactly **15 distinct, highly creative, and rigorous solution methods** (breaking down algebraic manipulation, transformations, analytical, geometric, symmetry, or functional perspectives) for representative master problems in this topic.
-    3. **LaTeX Rigor (Crucial)**: 
-       - Every single mathematical expression, variable, equation, or theorem MUST be wrapped in standard LaTeX syntax.
-       - Use inline math with single dollar signs (e.g., $x^2 + y^2 \\geq 2xy$) and block equations with double dollar signs:
-         $$\\frac{{a}}{{b}} + \\frac{{b}}{{a}} \\ge 2$$
-       - Do not use plain text for math symbols.
-    4. **Structure**:
-       - **# Title**: Formal title for the topic.
-       - **## Overview & Core Principles**: Theoretical foundations and background theorems.
-       - **## 50 Distinct Solution Methods**: Detailed step-by-step presentation of all 50 methods applied to the representative problems, clearly numbered from Method 1 to Method 50.
-       - **## Comparative Insights & Summary**: A brief expert synthesis on when to apply each method effectively.
-    '''
+Dữ liệu tham khảo từ Web:
+{search_context}
+
+Hãy bắt đầu viết báo cáo toàn diện đủ 50 phương pháp ngay bây giờ:
+"""
