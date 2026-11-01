@@ -15,7 +15,7 @@ qwen_client = OpenAI(
 
 # 3. Llama Client (Chạy qua Groq API với các model Llama 3/3.1 mạnh mẽ chuyên chấm bài)
 llama_client = OpenAI(
-    api_key=os.getenv('LLAMA_API_KEY') or os.getenv('GROQ_API_KEY'),
+    api_key=os.getenv('LLAMA_API_KEY') or os.getenv('GROQ_API_KEY_4'),
     base_url="https://api.groq.com/openai/v1"
 )
 
