@@ -1,4 +1,4 @@
-name: Pure Python Groq Research
+Name: Pure Python Groq Research
 
 on:
   workflow_dispatch:
@@ -20,16 +20,21 @@ jobs:
           python -m pip install --upgrade pip
           pip install openai duckduckgo_search
 
+      - name: Get current date in Vietnam timezone
+        id: date
+        run: echo "date=$(TZ='Asia/Ho_Chi_Minh' date +'%Y%m%d')" >> $GITHUB_OUTPUT
+
       - name: Run Research Script
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GROQ_API_KEY_2: ${{ secrets.GROQ_API_KEY_2 }}
           GROQ_API_KEY_3: ${{ secrets.GROQ_API_KEY_3 }}
           GROQ_API_KEY_4: ${{ secrets.GROQ_API_KEY_4 }}
+          RUN_DATE: ${{ steps.date.outputs.date }}
         run: python research.py
 
       - name: Upload All Reports as Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: hsg9-math-reports
+          name: hsg9-math-reports-${{ steps.date.outputs.date }}
           path: hsg9_reports/
