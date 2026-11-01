@@ -4,6 +4,7 @@ from datetime import datetime
 from openai import OpenAI
 from duckduckgo_search import DDGS
 from prompt_template import get_hsg9_prompt
+from api_clients import evaluate_by_claude, evaluate_by_qwen, evaluate_by_llama
 
 # Đọc bộ 4 key: GROQ_API_KEY, GROQ_API_KEY_2, GROQ_API_KEY_3, GROQ_API_KEY_4
 GROQ_API_KEYS = [
