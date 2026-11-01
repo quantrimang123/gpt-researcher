@@ -107,7 +107,7 @@ def main():
                             {"role": "user", "content": prompt}
                         ],
                         temperature=0.2,       # Giảm nhiệt độ để ép model tập trung tuyệt đối vào nội dung liệt kê dài
-                        max_tokens=8192        # Cấp đủ trần token để không bị cụt bài giữa chừng
+                        max_tokens=16384      # Cấp đủ trần token để không bị cụt bài giữa chừng
                     )
 
                     report = response.choices[0].message.content
