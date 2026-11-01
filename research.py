@@ -1,10 +1,11 @@
 import os
 import time
+from datetime import datetime
 from openai import OpenAI
 from duckduckgo_search import DDGS
 from prompt_template import get_hsg9_prompt
 
-# Đọc bộ 4 key mới: GROQ_API_KEY, GROQ_API_KEY_2, GROQ_API_KEY_3, GROQ_API_KEY_4
+# Đọc bộ 4 key: GROQ_API_KEY, GROQ_API_KEY_2, GROQ_API_KEY_3, GROQ_API_KEY_4
 GROQ_API_KEYS = [
     os.getenv('GROQ_API_KEY'),
     os.getenv('GROQ_API_KEY_2'),
@@ -29,7 +30,7 @@ def main():
     global current_key_idx
 
     print("=== BẮT ĐẦU CHẠY SCRIPT NGHIÊN CỨU ===", flush=True)
-    
+
     if not GROQ_API_KEYS:
         print("LỖI: Không tìm thấy Groq API Key nào hợp lệ (hoặc key không bắt đầu bằng gsk_)!", flush=True)
         return
@@ -37,7 +38,6 @@ def main():
     print(f"Đã nạp thành công {len(GROQ_API_KEYS)} Groq API Key.", flush=True)
 
     MODEL_NAME = 'openai/gpt-oss-20b'
-
 
     if not os.path.exists('topics.txt'):
         print("LỖI: Không tìm thấy file 'topics.txt'!", flush=True)
@@ -54,21 +54,25 @@ def main():
 
     os.makedirs('hsg9_reports', exist_ok=True)
 
+    # Lấy ngày từ biến môi trường RUN_DATE (do YAML truyền sang), nếu chạy local thì lấy ngày hiện tại
+    current_date = os.getenv('RUN_DATE') or datetime.now().strftime('%Y%m%d')
+
     pending_topics = []
     for idx, query in enumerate(topics, 1):
-        safe_filename = "".join(c if c.isalnum() else "_" for c in query)[:40].lower()
-        filename = f"hsg9_reports/report_{idx:02d}_{safe_filename}.md"
+        safe_filename = "".join(c if c.isalnum() else "_" for c in query)[:30].lower()
+        # Tên file gom gọn kèm ngày tháng: 01_ten_chuyen_de_20261101.md
+        filename = f"hsg9_reports/{idx:02d}_{safe_filename}_{current_date}.md"
         if not os.path.exists(filename):
             pending_topics.append((idx, query, filename))
 
     print(f"Số chuyên đề chưa có báo cáo cần xử lý: {len(pending_topics)}", flush=True)
-    
+
     if not pending_topics:
         print("Toàn bộ các chuyên đề đã có file báo cáo rồi!", flush=True)
         return
 
     for count, (idx, query, filename) in enumerate(pending_topics, 1):
-        print(f"\n--- Xử lý [{count}/{len(pending_topics)}] Chủ đề [{idx}]: {query} ---", flush=True)
+        print(f"\n--- Xử lý [{count}/{len(pending_topics)}] Chủ đề [{idx} vào file: {filename}]: {query} ---", flush=True)
 
         search_results = []
         try:
@@ -95,14 +99,15 @@ def main():
             for attempt in range(1, 4):
                 try:
                     print(f"Đang gọi Groq model [{MODEL_NAME}] bằng Key số [{current_key_idx + 1}] (Lần thử {attempt})...", flush=True)
-                    
+
                     response = client.chat.completions.create(
                         model=MODEL_NAME,
                         messages=[
-                            {"role": "system", "content": "You are an elite expert mathematics researcher and olympiad coach."},
+                            {"role": "system", "content": "You are an elite expert mathematics researcher and olympiad coach. You strictly follow all instructions regarding counts and output length without summarizing."},
                             {"role": "user", "content": prompt}
                         ],
-                        temperature=0.3,
+                        temperature=0.2,       # Giảm nhiệt độ để ép model tập trung tuyệt đối vào nội dung liệt kê dài
+                        max_tokens=8192        # Cấp đủ trần token để không bị cụt bài giữa chừng
                     )
 
                     report = response.choices[0].message.content
@@ -129,8 +134,9 @@ def main():
                 break
 
         if not success:
-            print(f"Bỏ qua chuyên đề {idx} do lỗi liên tục.", flush=True)
-            break
+            print(f"⚠️ Bỏ qua chuyên đề {idx} do lỗi liên tục, tiếp tục bài sau...", flush=True)
+            # Dùng continue thay vì break để nó không dừng hẳn vòng lặp lớn, ép cày hết sạch các mục còn lại!
+            continue
 
         time.sleep(1)
 
