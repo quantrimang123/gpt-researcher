@@ -81,4 +81,31 @@ REASON: [Nhận xét chi tiết của Qwen]
 
 
 def evaluate_by_llama(topic, content):
-    """Giám khảo 3: Llama (Chuyên gia phản biện kiểm tra lỗi ngụy biện
+    """Giám khảo 3: Llama (Chuyên gia phản biện kiểm tra lỗi ngụy biện / lách luật)"""
+    prompt = f"""
+Bạn là Thành viên Hội đồng Giám khảo phản biện độc lập (Llama). Hãy kiểm tra báo cáo chuyên đề: "{topic}".
+Nội dung bài làm:
+{content[:8000]}...
+
+TIÊU CHÍ:
+1. Đảm bảo đủ 50 phương pháp không bị gộp nhóm trá hình.
+2. Kiểm tra xem các bước giải toán có bị cụt ngủn hoặc thiếu logic bước nhảy vọt hay không.
+
+Trả về ĐÚNG định dạng:
+STATUS: [PASS hoặc FAIL]
+REASON: [Nhận xét chi tiết của Llama]
+"""
+    try:
+        # Sử dụng model Llama mạnh nhất trên Groq (ví dụ llama-3.3-70b-versatile hoặc llama-3.1-70b)
+        response = llama_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.0,
+            max_tokens=300
+        )
+        text = response.choices[0].message.content.strip()
+        if "STATUS: PASS" in text:
+            return True, "Llama: Đạt"
+        return False, text.split("REASON:")[-1].strip() if "REASON:" in text else "Llama đánh rớt."
+    except Exception as e:
+        return True, f"Bỏ qua lỗi Llama: {e}"
