@@ -36,7 +36,7 @@ def main():
 
     print(f"Đã nạp thành công {len(GROQ_API_KEYS)} Groq API Key.", flush=True)
 
-    MODEL_NAME = 'llama-3.1-8b-instant'
+    MODEL_NAME = 'meta-llama/llama-4-scout-17b-16e-instruct'
 
     if not os.path.exists('topics.txt'):
         print("LỖI: Không tìm thấy file 'topics.txt'!", flush=True)
