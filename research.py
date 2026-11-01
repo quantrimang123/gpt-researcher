@@ -1,27 +1,25 @@
 import os
 import re
 import time
+import yaml
 from datetime import datetime
 from openai import OpenAI
 from duckduckgo_search import DDGS
 from prompt_template import get_hsg9_prompt
 from api_clients import evaluate_by_claude, evaluate_by_qwen, evaluate_by_llama
 
-# Đọc bộ 4 key: GROQ_API_KEY, GROQ_API_KEY_2, GROQ_API_KEY_3, GROQ_API_KEY_4
 GROQ_API_KEYS = [
     os.getenv('GROQ_API_KEY'),
     os.getenv('GROQ_API_KEY_2'),
     os.getenv('GROQ_API_KEY_3'),
     os.getenv('GROQ_API_KEY_4'),
 ]
-# Lọc bỏ các key bị trống hoặc không hợp lệ
 GROQ_API_KEYS = [k for k in GROQ_API_KEYS if k and k.startswith('gsk_')]
 
 current_key_idx = 0
 
 
 def iron_shield_validator(report: str):
-    """Kiểm tra báo cáo có đủ 50 phương pháp, không rỗng, không mục quá ngắn hay sai dạng."""
     if not report or not isinstance(report, str):
         return False, "Bài báo trống hoặc không phải chuỗi văn bản."
 
@@ -49,7 +47,6 @@ def iron_shield_validator(report: str):
 
 
 def run_quality_gate(topic: str, report: str):
-    """Chạy kiểm định cứng + 3 giám khảo, nếu 1 trong các tầng không đạt thì bắt làm lại."""
     ok, reason = iron_shield_validator(report)
     if not ok:
         return False, f"Iron Shield: {reason}"
@@ -91,7 +88,7 @@ def main():
     print("=== BẮT ĐẦU CHẠY SCRIPT NGHIÊN CỨU ===", flush=True)
 
     if not GROQ_API_KEYS:
-        print("LỖI: Không tìm thấy Groq API Key nào hợp lệ (hoặc key không bắt đầu bằng gsk_)!", flush=True)
+        print("LỖI: Không tìm thấy Groq API Key nào hợp lệ!", flush=True)
         return
 
     print(f"Đã nạp thành công {len(GROQ_API_KEYS)} Groq API Key.", flush=True)
@@ -113,7 +110,6 @@ def main():
 
     os.makedirs('hsg9_reports', exist_ok=True)
 
-    # Lấy ngày từ biến môi trường RUN_DATE (do YAML truyền sang), nếu chạy local thì lấy ngày hiện tại
     current_date = os.getenv('RUN_DATE') or datetime.now().strftime('%Y%m%d')
 
     pending_topics = []
@@ -134,14 +130,17 @@ def main():
 
         search_results = []
         try:
-            print("Đang gọi DuckDuckGo Search...", flush=True)
+            print("Đang gọi DuckDuckGo Search (60 nguồn đa dạng)...", flush=True)
             with DDGS() as ddgs:
-                for r in ddgs.text(f"math olympiad hsg 9 {query}", max_results=8):
-                    search_results.append(f"Title: {r.get('title')}\nSnippet: {r.get('body')}\n")
-            print(f"-> Tìm kiếm xong. Lấy được {len(search_results)} kết quả.", flush=True)
+                # Kéo tối đa 60 nguồn, mỗi snippet cắt đúng 50 ký tự để vét sạch dữ liệu mà vẫn an toàn token
+                for r in ddgs.text(f"math olympiad hsg 9 {query}", max_results=60):
+                    title = (r.get('title') or '')[:30]
+                    body = (r.get('body') or '')[:50]
+                    search_results.append(f"- {title}: {body}")
+            print(f"-> Đã bóc tách xong {len(search_results)} nguồn gọn nhẹ.", flush=True)
         except Exception as e:
             print(f"Lỗi tìm kiếm DuckDuckGo: {e}", flush=True)
-            search_results = ["No external search results. Relying on internal expert math knowledge."]
+            search_results = ["- Ký ức chuyên gia toán học."]
 
         search_context = '\n'.join(search_results)
         prompt = get_hsg9_prompt(query, search_context)
@@ -173,7 +172,6 @@ def main():
 
                     report = (response.choices[0].message.content or "").strip()
 
-                    # --- Kiểm tra ngay sau khi Groq trả về ---
                     quality_ok, quality_reason = run_quality_gate(query, report)
                     if not quality_ok:
                         print(f"  └─ Báo cáo không đạt kiểm định: {quality_reason}. Bắt đầu làm lại...", flush=True)
@@ -182,9 +180,24 @@ def main():
                             continue
                         break
 
+                    # Lưu file báo cáo Markdown
                     with open(filename, 'w', encoding='utf-8') as f:
                         f.write(report)
                     print(f"--> Đã lưu thành công báo cáo vào {filename}", flush=True)
+
+                    # Tự động sinh file YAML metadata đồng bộ
+                    metadata = {
+                        "topic": query,
+                        "report_file": filename,
+                        "date": current_date,
+                        "status": "APPROVED",
+                        "validator": "Iron Shield + Jury Passed"
+                    }
+                    yaml_filename = filename.replace('.md', '.yaml')
+                    with open(yaml_filename, 'w', encoding='utf-8') as yf:
+                        yaml.dump(metadata, yf, allow_unicode=True, sort_keys=False)
+                    print(f"--> Đã xuất file metadata YAML vào {yaml_filename}", flush=True)
+
                     success = True
                     break
 
