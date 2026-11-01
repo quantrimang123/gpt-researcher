@@ -1,4 +1,5 @@
 import os
+import re
 import time
 from datetime import datetime
 from openai import OpenAI
@@ -18,6 +19,62 @@ GROQ_API_KEYS = [k for k in GROQ_API_KEYS if k and k.startswith('gsk_')]
 
 current_key_idx = 0
 
+
+def iron_shield_validator(report: str):
+    """Kiểm tra báo cáo có đủ 50 phương pháp, không rỗng, không mục quá ngắn hay sai dạng."""
+    if not report or not isinstance(report, str):
+        return False, "Bài báo trống hoặc không phải chuỗi văn bản."
+
+    text = report.strip()
+    if not text:
+        return False, "Bài báo trống sau khi cắt khoảng trắng."
+
+    if "### Phương pháp" not in text:
+        return False, "Thiếu mốc phương pháp: không tìm thấy tiêu đề ### Phương pháp ..."
+
+    method_blocks = re.findall(
+        r"(?ms)^###\s*Phương pháp\s*\d+.*?(?=^###\s*Phương pháp\s*\d+|\Z)",
+        text,
+    )
+
+    if len(method_blocks) < 50:
+        return False, f"Thiếu mốc phương pháp: tìm thấy {len(method_blocks)}/50 phương pháp."
+
+    for idx, block in enumerate(method_blocks[:50], 1):
+        cleaned = block.strip()
+        if len(cleaned) < 150:
+            return False, f"Phương pháp {idx} quá ngắn (<150 ký tự)."
+
+    return True, "Đạt chuẩn qua Iron Shield."
+
+
+def run_quality_gate(topic: str, report: str):
+    """Chạy kiểm định cứng + 3 giám khảo, nếu 1 trong các tầng không đạt thì bắt làm lại."""
+    ok, reason = iron_shield_validator(report)
+    if not ok:
+        return False, f"Iron Shield: {reason}"
+
+    judge_checks = [
+        ("Claude", evaluate_by_claude),
+        ("Qwen", evaluate_by_qwen),
+        ("Llama", evaluate_by_llama),
+    ]
+    failures = []
+
+    for judge_name, judge_fn in judge_checks:
+        try:
+            judge_ok, judge_reason = judge_fn(topic, report)
+            if not judge_ok:
+                failures.append(f"{judge_name}: {judge_reason}")
+        except Exception as exc:
+            failures.append(f"{judge_name}: lỗi khi chấm bài - {exc}")
+
+    if failures:
+        return False, " | ".join(failures)
+
+    return True, "Đạt kiểm định nội bộ và giám khảo."
+
+
 def get_client():
     if not GROQ_API_KEYS:
         return None
@@ -26,6 +83,7 @@ def get_client():
         api_key=key,
         base_url="https://api.groq.com/openai/v1"
     )
+
 
 def main():
     global current_key_idx
@@ -61,7 +119,6 @@ def main():
     pending_topics = []
     for idx, query in enumerate(topics, 1):
         safe_filename = "".join(c if c.isalnum() else "_" for c in query)[:30].lower()
-        # Tên file gom gọn kèm ngày tháng: 01_ten_chuyen_de_20261101.md
         filename = f"hsg9_reports/{idx:02d}_{safe_filename}_{current_date}.md"
         if not os.path.exists(filename):
             pending_topics.append((idx, query, filename))
@@ -104,23 +161,37 @@ def main():
                     response = client.chat.completions.create(
                         model=MODEL_NAME,
                         messages=[
-                            {"role": "system", "content": "You are an elite expert mathematics researcher and olympiad coach. You strictly follow all instructions regarding counts and output length without summarizing."},
+                            {
+                                "role": "system",
+                                "content": "You are an elite expert mathematics researcher and olympiad coach. You strictly follow all instructions regarding counts and output length. Generate a complete, detailed, high-quality report with exactly 50 numbered methods. Every method must be distinct, include formulas, examples, and reasoning. Do not invent fake references. Keep all content rich and deep."
+                            },
                             {"role": "user", "content": prompt}
                         ],
-                        temperature=0.2,       # Giảm nhiệt độ để ép model tập trung tuyệt đối vào nội dung liệt kê dài
-                        max_tokens=16384      # Cấp đủ trần token để không bị cụt bài giữa chừng
+                        temperature=0.2,
+                        max_tokens=16384
                     )
 
-                    report = response.choices[0].message.content
+                    report = (response.choices[0].message.content or "").strip()
+
+                    # --- Kiểm tra ngay sau khi Groq trả về ---
+                    quality_ok, quality_reason = run_quality_gate(query, report)
+                    if not quality_ok:
+                        print(f"  └─ Báo cáo không đạt kiểm định: {quality_reason}. Bắt đầu làm lại...", flush=True)
+                        if attempt < 3:
+                            time.sleep(2)
+                            continue
+                        break
 
                     with open(filename, 'w', encoding='utf-8') as f:
                         f.write(report)
                     print(f"--> Đã lưu thành công báo cáo vào {filename}", flush=True)
                     success = True
                     break
+
                 except Exception as e:
                     err_msg = str(e)
                     print(f"  └─ Lỗi gọi API: {err_msg}", flush=True)
+
                     if "429" in err_msg or "rate_limit_exceeded" in err_msg.lower():
                         print(f"  └─ Chuyển sang Key tiếp theo...", flush=True)
                         if len(GROQ_API_KEYS) > 1:
@@ -136,12 +207,12 @@ def main():
 
         if not success:
             print(f"⚠️ Bỏ qua chuyên đề {idx} do lỗi liên tục, tiếp tục bài sau...", flush=True)
-            # Dùng continue thay vì break để nó không dừng hẳn vòng lặp lớn, ép cày hết sạch các mục còn lại!
             continue
 
         time.sleep(1)
 
     print("\n=== HOÀN THÀNH TOÀN BỘ TIẾN TRÌNH ===", flush=True)
+
 
 if __name__ == '__main__':
     main()
