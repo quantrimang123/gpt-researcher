@@ -1,4 +1,4 @@
-Name: Pure Python Groq Research
+name: Pure Python Groq Research
 
 on:
   workflow_dispatch:
