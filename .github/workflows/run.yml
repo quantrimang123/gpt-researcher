@@ -18,7 +18,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install openai duckduckgo_search
+          pip install openai anthropic duckduckgo_search
 
       - name: Get current date in Vietnam timezone
         id: date
@@ -30,6 +30,9 @@ jobs:
           GROQ_API_KEY_2: ${{ secrets.GROQ_API_KEY_2 }}
           GROQ_API_KEY_3: ${{ secrets.GROQ_API_KEY_3 }}
           GROQ_API_KEY_4: ${{ secrets.GROQ_API_KEY_4 }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
+          LLAMA_API_KEY: ${{ secrets.LLAMA_API_KEY }}
           RUN_DATE: ${{ steps.date.outputs.date }}
         run: python research.py
 
