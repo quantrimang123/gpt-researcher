@@ -34,8 +34,7 @@ jobs:
           QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
           LLAMA_API_KEY: ${{ secrets.LLAMA_API_KEY }}
           RUN_DATE: ${{ steps.date.outputs.date }}
-        run:  |python research.py
-               python api_clients.py
+        run:  python research.py
 
       - name: Upload All Reports as Artifact
         uses: actions/upload-artifact@v4
