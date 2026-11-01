@@ -7,7 +7,7 @@ from prompt_template import get_hsg9_prompt
 # Lấy 4 biến môi trường Groq đã cài trong Secrets
 GROQ_API_KEYS = [
     os.getenv('GROQ_API_KEY'),
-    os.getenv('GROQ_API_KEY_1'),
+    os.getenv('GROQ_API_KEY_4'),
     os.getenv('GROQ_API_KEY_2'),
     os.getenv('GROQ_API_KEY_3'),
 ]
