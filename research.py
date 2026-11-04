@@ -1,10 +1,11 @@
 import os
 import re
 import time
+import random
 import yaml
 from datetime import datetime
 from openai import OpenAI
-from duckduckgo_search import DDGS
+from playwright.sync_api import sync_playwright
 from prompt_template import get_hsg9_prompt
 from api_clients import evaluate_by_claude, evaluate_by_qwen, evaluate_by_llama
 
@@ -82,6 +83,89 @@ def get_client():
     )
 
 
+def fetch_search_results_with_firefox(query: str, max_target=60):
+    """
+    Sử dụng Firefox (Playwright Headless) để cào trực tiếp giao diện Google Search.
+    Đảm bảo 100% nguồn từ Google, chống bot tốt và an toàn token cho Groq.
+    """
+    search_results = []
+    seen_snippets = set()
+
+    print(f"Đang dùng Firefox (Playwright) cào Google Search cho: {query}...", flush=True)
+
+    try:
+        with sync_playwright() as p:
+            browser = p.firefox.launch(headless=True)
+            context = browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
+                viewport={"width": 1280, "height": 800}
+            )
+            page = context.new_page()
+            
+            # Truy cập Google
+            page.goto("https://www.google.com", timeout=30000)
+            
+            # Bỏ qua popup cookie nếu có
+            try:
+                page.click("button:has-text('Accept all')", timeout=3000)
+            except:
+                pass
+
+            # Gõ từ khóa tìm kiếm
+            search_box = page.locator("textarea[name='q'], input[name='q']")
+            search_box.fill(f"math olympiad hsg 9 {query}")
+            search_box.press("Enter")
+
+            # Đợi kết quả tải lên
+            page.wait_for_selector("div.g", timeout=10000)
+
+            current_count = 0
+            while current_count < max_target:
+                result_elements = page.locator("div.g").all()
+
+                for el in result_elements:
+                    if current_count >= max_target:
+                        break
+                    try:
+                        title_el = el.locator("h3").first
+                        snippet_el = el.locator("div[style*='-webkit-line-clamp'], div.VwiC3b").first
+
+                        title = title_el.inner_text(timeout=1000) if title_el.count() > 0 else "Olympiad Source"
+                        body = snippet_el.inner_text(timeout=1000) if snippet_el.count() > 0 else ""
+
+                        # Cắt gọn chống tràn 8k TPM của Groq
+                        safe_title = title[:30]
+                        safe_body = body[:50]
+
+                        snippet_str = f"- {safe_title}: {safe_body}"
+                        if snippet_str not in seen_snippets and body:
+                            seen_snippets.add(snippet_str)
+                            search_results.append(snippet_str)
+                            current_count += 1
+                    except Exception:
+                        continue
+
+                # Chuyển trang tiếp theo nếu chưa đủ số lượng mục tiêu
+                if current_count < max_target:
+                    next_button = page.locator("a#pnnext")
+                    if next_button.count() > 0:
+                        next_button.click()
+                        time.sleep(random.uniform(2.0, 3.5))
+                    else:
+                        break
+
+            browser.close()
+            print(f"-> Firefox (Playwright) cào thành công {len(search_results)} nguồn từ Google.", flush=True)
+
+    except Exception as e:
+        print(f"Lỗi khi cào Google bằng Firefox: {e}", flush=True)
+
+    if not search_results:
+        search_results = ["- Ký ức chuyên gia toán học."]
+
+    return search_results[:max_target]
+
+
 def main():
     global current_key_idx
 
@@ -128,19 +212,8 @@ def main():
     for count, (idx, query, filename) in enumerate(pending_topics, 1):
         print(f"\n--- Xử lý [{count}/{len(pending_topics)}] Chủ đề [{idx} vào file: {filename}]: {query} ---", flush=True)
 
-        search_results = []
-        try:
-            print("Đang gọi DuckDuckGo Search (60 nguồn đa dạng)...", flush=True)
-            with DDGS() as ddgs:
-                # Kéo tối đa 60 nguồn, mỗi snippet cắt đúng 50 ký tự để vét sạch dữ liệu mà vẫn an toàn token
-                for r in ddgs.text(f"math olympiad hsg 9 {query}", max_results=60):
-                    title = (r.get('title') or '')[:30]
-                    body = (r.get('body') or '')[:50]
-                    search_results.append(f"- {title}: {body}")
-            print(f"-> Đã bóc tách xong {len(search_results)} nguồn gọn nhẹ.", flush=True)
-        except Exception as e:
-            print(f"Lỗi tìm kiếm DuckDuckGo: {e}", flush=True)
-            search_results = ["- Ký ức chuyên gia toán học."]
+        # Cào dữ liệu trực tiếp bằng Firefox (Playwright)
+        search_results = fetch_search_results_with_firefox(query, max_target=60)
 
         search_context = '\n'.join(search_results)
         prompt = get_hsg9_prompt(query, search_context)
