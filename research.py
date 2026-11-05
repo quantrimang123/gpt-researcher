@@ -85,83 +85,118 @@ def get_client():
 
 def fetch_search_results_with_firefox(query: str, max_target=60):
     """
-    Sử dụng Firefox (Playwright Headless) để cào trực tiếp giao diện Google Search.
-    Đảm bảo 100% nguồn từ Google, chống bot tốt và an toàn token cho Groq.
+    Sử dụng Firefox (Playwright Headless) giả lập 100% thao tác người thật 
+    vượt mặt hệ thống chống bot của Google bằng kỹ thuật Clipboard Copy-Paste.
     """
     search_results = []
     seen_snippets = set()
 
-    print(f"Đang dùng Firefox (Playwright) cào Google Search cho: {query}...", flush=True)
+    print(f"Đang giả lập người dùng copy-paste tìm kiếm Google cho: {query}...", flush=True)
 
     try:
         with sync_playwright() as p:
-            browser = p.firefox.launch(headless=True)
-            context = browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
-                viewport={"width": 1280, "height": 800}
+            # Khởi động Firefox ẩn danh nhưng tinh chỉnh cờ chống phát hiện
+            browser = p.firefox.launch(
+                headless=True,
+                args=[
+                    "--disable-blink-features=AutomationControlled",
+                    "--disable-infobars",
+                ]
             )
+            
+            context = browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0",
+                viewport={"width": 1366, "height": 768},
+                locale="vi-VN",
+                timezone_id="Asia/Ho_Chi_Minh",
+                permissions=["geolocation"]
+            )
+            
             page = context.new_page()
             
-            # Truy cập Google
-            page.goto("https://www.google.com", timeout=30000)
-            
-            # Bỏ qua popup cookie nếu có
+            # GIẤU SẠCH DẤU VẾT WEBDRIVER (Phải thực hiện TRƯỚC page.goto)
+            page.add_init_script("""
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined
+                });
+                window.navigator.chrome = { runtime: {} };
+                Object.defineProperty(navigator, 'languages', {
+                    get: () => ['vi-VN', 'vi', 'en-US', 'en']
+                });
+                Object.defineProperty(navigator, 'plugins', {
+                    get: () => [1, 2, 3, 4, 5]
+                });
+            """)
+
+            # 1. Truy cập trang chủ Google tự nhiên như người dùng thật
+            page.goto("https://www.google.com", timeout=30000, wait_until="domcontentloaded")
+            time.sleep(random.uniform(1.5, 3.0))
+
+            # Xử lý popup cookie nếu có
             try:
-                page.click("button:has-text('Accept all')", timeout=3000)
+                accept_btn = page.locator("button:has-text('Accept all'), button:has-text('Tôi đồng ý')")
+                if accept_btn.count() > 0:
+                    accept_btn.first.click()
+                    time.sleep(1)
             except:
                 pass
 
-            # Gõ từ khóa tìm kiếm
-            search_box = page.locator("textarea[name='q'], input[name='q']")
-            search_box.fill(f"math olympiad hsg 9 {query}")
-            search_box.press("Enter")
+            # 2. Định vị ô nhập từ khóa
+            search_box = page.locator("textarea[name='q'], input[name='q']").first
+            search_box.click()
+            time.sleep(random.uniform(0.5, 1.2))
 
-            # Đợi kết quả tải lên
-            page.wait_for_selector("div.g", timeout=10000)
+            # 3. KỸ THUẬT COPY - PASTE CHỐNG BOT: Dùng Clipboard đẩy thẳng chuỗi từ khóa vào
+            full_search_term = f"math olympiad hsg 9 {query}"
+            
+            try:
+                page.evaluate(f"navigator.clipboard.writeText('{full_search_term}')")
+                page.keyboard.press("Control+v") # Giả lập tổ hợp Ctrl + V dán văn bản
+            except Exception:
+                # Fallback gõ phím mô phỏng tốc độ tự nhiên nếu Clipboard bị chặn ở sandbox
+                for char in full_search_term:
+                    page.keyboard.type(char)
+                    time.sleep(random.uniform(0.05, 0.18))
+
+            time.sleep(random.uniform(0.8, 1.5))
+            page.keyboard.press("Enter")
+
+            # 4. Chờ kết quả tải về linh hoạt
+            page.wait_for_selector("div.g, div.tF2Cxc", timeout=15000)
+            time.sleep(random.uniform(1.0, 2.5))
 
             current_count = 0
-            while current_count < max_target:
-                result_elements = page.locator("div.g").all()
+            result_elements = page.locator("div.g, div.tF2Cxc").all()
 
-                for el in result_elements:
-                    if current_count >= max_target:
-                        break
-                    try:
-                        title_el = el.locator("h3").first
-                        snippet_el = el.locator("div[style*='-webkit-line-clamp'], div.VwiC3b").first
+            for el in result_elements:
+                if current_count >= max_target:
+                    break
+                try:
+                    title_el = el.locator("h3").first
+                    snippet_el = el.locator("div[style*='-webkit-line-clamp'], div.VwiC3b, span.aCOpRe").first
 
-                        title = title_el.inner_text(timeout=1000) if title_el.count() > 0 else "Olympiad Source"
-                        body = snippet_el.inner_text(timeout=1000) if snippet_el.count() > 0 else ""
+                    title = title_el.inner_text(timeout=500) if title_el.count() > 0 else "Olympiad Source"
+                    body = snippet_el.inner_text(timeout=500) if snippet_el.count() > 0 else ""
 
-                        # Cắt gọn chống tràn 8k TPM của Groq
-                        safe_title = title[:30]
-                        safe_body = body[:50]
+                    safe_title = title[:30]
+                    safe_body = body[:50]
 
-                        snippet_str = f"- {safe_title}: {safe_body}"
-                        if snippet_str not in seen_snippets and body:
-                            seen_snippets.add(snippet_str)
-                            search_results.append(snippet_str)
-                            current_count += 1
-                    except Exception:
-                        continue
-
-                # Chuyển trang tiếp theo nếu chưa đủ số lượng mục tiêu
-                if current_count < max_target:
-                    next_button = page.locator("a#pnnext")
-                    if next_button.count() > 0:
-                        next_button.click()
-                        time.sleep(random.uniform(2.0, 3.5))
-                    else:
-                        break
+                    snippet_str = f"- {safe_title}: {safe_body}"
+                    if snippet_str not in seen_snippets and body:
+                        seen_snippets.add(snippet_str)
+                        search_results.append(snippet_str)
+                        current_count += 1
+                except Exception:
+                    continue
 
             browser.close()
-            print(f"-> Firefox (Playwright) cào thành công {len(search_results)} nguồn từ Google.", flush=True)
+            print(f"-> Cào thành công {len(search_results)} nguồn Google bằng Firefox giả lập Copy-Paste.", flush=True)
 
     except Exception as e:
         print(f"Lỗi khi cào Google bằng Firefox: {e}", flush=True)
 
     if not search_results:
-        search_results = ["- Ký ức chuyên gia toán học."]
+        search_results = ["- Ký ức chuyên gia toán học chuyên sâu."]
 
     return search_results[:max_target]
 
@@ -212,7 +247,7 @@ def main():
     for count, (idx, query, filename) in enumerate(pending_topics, 1):
         print(f"\n--- Xử lý [{count}/{len(pending_topics)}] Chủ đề [{idx} vào file: {filename}]: {query} ---", flush=True)
 
-        # Cào dữ liệu trực tiếp bằng Firefox (Playwright)
+        # Cào dữ liệu thực tế bằng Firefox (Playwright) với kỹ thuật copy-paste
         search_results = fetch_search_results_with_firefox(query, max_target=60)
 
         search_context = '\n'.join(search_results)
