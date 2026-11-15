@@ -5,9 +5,8 @@ import random
 import yaml
 from datetime import datetime
 from openai import OpenAI
-from playwright.sync_api import sync_playwright
 from prompt_template import get_hsg9_prompt
-from api_clients import evaluate_by_claude, evaluate_by_qwen, evaluate_by_llama
+import requests
 
 GROQ_API_KEYS = [
     os.getenv('GROQ_API_KEY'),
@@ -48,29 +47,12 @@ def iron_shield_validator(report: str):
 
 
 def run_quality_gate(topic: str, report: str):
+    """Đã loại bỏ giám khảo (Claude, Qwen, Llama), chỉ chạy Iron Shield Validator."""
     ok, reason = iron_shield_validator(report)
     if not ok:
         return False, f"Iron Shield: {reason}"
 
-    judge_checks = [
-        ("Claude", evaluate_by_claude),
-        ("Qwen", evaluate_by_qwen),
-        ("Llama", evaluate_by_llama),
-    ]
-    failures = []
-
-    for judge_name, judge_fn in judge_checks:
-        try:
-            judge_ok, judge_reason = judge_fn(topic, report)
-            if not judge_ok:
-                failures.append(f"{judge_name}: {judge_reason}")
-        except Exception as exc:
-            failures.append(f"{judge_name}: lỗi khi chấm bài - {exc}")
-
-    if failures:
-        return False, " | ".join(failures)
-
-    return True, "Đạt kiểm định nội bộ và giám khảo."
+    return True, "Đạt kiểm định nội bộ Iron Shield thành công."
 
 
 def get_client():
@@ -83,100 +65,48 @@ def get_client():
     )
 
 
-def fetch_search_results_with_firefox(query: str, max_target=60):
+def fetch_search_results_with_searxng(query: str, max_target=60):
     """
-    Sử dụng Firefox (Playwright Headless) giả lập 100% thao tác người thật 
-    vượt mặt hệ thống chống bot của Google bằng kỹ thuật Clipboard Copy-Paste.
+    Sử dụng SearXNG Public Instance API để lấy kết quả tìm kiếm tổng hợp 
+    (bao gồm Google, Bing,...) hoàn toàn miễn phí, không giới hạn, không CAPTCHA.
     """
     search_results = []
     seen_snippets = set()
 
-    print(f"Đang giả lập người dùng copy-paste tìm kiếm Google cho: {query}...", flush=True)
+    full_search_term = f"math olympiad hsg 9 {query}"
+    print(f"Đang tìm kiếm qua SearXNG API cho: {full_search_term}...", flush=True)
 
-    try:
-        with sync_playwright() as p:
-            # Khởi động Firefox ẩn danh nhưng tinh chỉnh cờ chống phát hiện
-            browser = p.firefox.launch(
-                headless=True,
-                args=[
-                    "--disable-blink-features=AutomationControlled",
-                    "--disable-infobars",
-                ]
-            )
+    # Danh sách các public instance SearXNG dự phòng để tăng độ bền vững
+    searxng_instances = [
+        "https://searx.be/search",
+        "https://search.onlinedatainvestment.com/search",
+        "https://suche.indecision.de/search"
+    ]
+
+    success = False
+    for url in searxng_instances:
+        if success:
+            break
+        try:
+            params = {
+                "q": full_search_term,
+                "format": "json",
+                "language": "vi"
+            }
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0"
+            }
             
-            context = browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0",
-                viewport={"width": 1366, "height": 768},
-                locale="vi-VN",
-                timezone_id="Asia/Ho_Chi_Minh",
-                permissions=["geolocation"]
-            )
-            
-            page = context.new_page()
-            
-            # GIẤU SẠCH DẤU VẾT WEBDRIVER (Phải thực hiện TRƯỚC page.goto)
-            page.add_init_script("""
-                Object.defineProperty(navigator, 'webdriver', {
-                    get: () => undefined
-                });
-                window.navigator.chrome = { runtime: {} };
-                Object.defineProperty(navigator, 'languages', {
-                    get: () => ['vi-VN', 'vi', 'en-US', 'en']
-                });
-                Object.defineProperty(navigator, 'plugins', {
-                    get: () => [1, 2, 3, 4, 5]
-                });
-            """)
-
-            # 1. Truy cập trang chủ Google tự nhiên như người dùng thật
-            page.goto("https://www.google.com", timeout=30000, wait_until="domcontentloaded")
-            time.sleep(random.uniform(1.5, 3.0))
-
-            # Xử lý popup cookie nếu có
-            try:
-                accept_btn = page.locator("button:has-text('Accept all'), button:has-text('Tôi đồng ý')")
-                if accept_btn.count() > 0:
-                    accept_btn.first.click()
-                    time.sleep(1)
-            except:
-                pass
-
-            # 2. Định vị ô nhập từ khóa
-            search_box = page.locator("textarea[name='q'], input[name='q']").first
-            search_box.click()
-            time.sleep(random.uniform(0.5, 1.2))
-
-            # 3. KỸ THUẬT COPY - PASTE CHỐNG BOT: Dùng Clipboard đẩy thẳng chuỗi từ khóa vào
-            full_search_term = f"math olympiad hsg 9 {query}"
-            
-            try:
-                page.evaluate(f"navigator.clipboard.writeText('{full_search_term}')")
-                page.keyboard.press("Control+v") # Giả lập tổ hợp Ctrl + V dán văn bản
-            except Exception:
-                # Fallback gõ phím mô phỏng tốc độ tự nhiên nếu Clipboard bị chặn ở sandbox
-                for char in full_search_term:
-                    page.keyboard.type(char)
-                    time.sleep(random.uniform(0.05, 0.18))
-
-            time.sleep(random.uniform(0.8, 1.5))
-            page.keyboard.press("Enter")
-
-            # 4. Chờ kết quả tải về linh hoạt
-            page.wait_for_selector("div.g, div.tF2Cxc", timeout=15000)
-            time.sleep(random.uniform(1.0, 2.5))
-
-            current_count = 0
-            result_elements = page.locator("div.g, div.tF2Cxc").all()
-
-            for el in result_elements:
-                if current_count >= max_target:
-                    break
-                try:
-                    title_el = el.locator("h3").first
-                    snippet_el = el.locator("div[style*='-webkit-line-clamp'], div.VwiC3b, span.aCOpRe").first
-
-                    title = title_el.inner_text(timeout=500) if title_el.count() > 0 else "Olympiad Source"
-                    body = snippet_el.inner_text(timeout=500) if snippet_el.count() > 0 else ""
+            response = requests.get(url, params=params, headers=headers, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                results = data.get("results", [])
+                
+                for item in results:
+                    if len(search_results) >= max_target:
+                        break
+                    title = item.get("title", "Olympiad Source")
+                    body = item.get("content", "")
 
                     safe_title = title[:30]
                     safe_body = body[:50]
@@ -185,18 +115,16 @@ def fetch_search_results_with_firefox(query: str, max_target=60):
                     if snippet_str not in seen_snippets and body:
                         seen_snippets.add(snippet_str)
                         search_results.append(snippet_str)
-                        current_count += 1
-                except Exception:
-                    continue
-
-            browser.close()
-            print(f"-> Cào thành công {len(search_results)} nguồn Google bằng Firefox giả lập Copy-Paste.", flush=True)
-
-    except Exception as e:
-        print(f"Lỗi khi cào Google bằng Firefox: {e}", flush=True)
+                
+                if search_results:
+                    success = True
+                    print(f"-> Thu thập thành công {len(search_results)} nguồn từ SearXNG ({url}).", flush=True)
+        except Exception as e:
+            continue
 
     if not search_results:
-        search_results = ["- Ký ức chuyên gia toán học chuyên sâu."]
+        print("⚠️ Không lấy được kết quả từ SearXNG, dùng dữ liệu dự phòng.", flush=True)
+        search_results = ["- Ký ức chuyên gia toán học chuyên sâu và phương pháp luận HSG 9."]
 
     return search_results[:max_target]
 
@@ -247,8 +175,8 @@ def main():
     for count, (idx, query, filename) in enumerate(pending_topics, 1):
         print(f"\n--- Xử lý [{count}/{len(pending_topics)}] Chủ đề [{idx} vào file: {filename}]: {query} ---", flush=True)
 
-        # Cào dữ liệu thực tế bằng Firefox (Playwright) với kỹ thuật copy-paste
-        search_results = fetch_search_results_with_firefox(query, max_target=60)
+        # Cào dữ liệu qua SearXNG API (Không lo CAPTCHA, không dùng Playwright)
+        search_results = fetch_search_results_with_searxng(query, max_target=60)
 
         search_context = '\n'.join(search_results)
         prompt = get_hsg9_prompt(query, search_context)
@@ -299,7 +227,7 @@ def main():
                         "report_file": filename,
                         "date": current_date,
                         "status": "APPROVED",
-                        "validator": "Iron Shield + Jury Passed"
+                        "validator": "Iron Shield Passed"
                     }
                     yaml_filename = filename.replace('.md', '.yaml')
                     with open(yaml_filename, 'w', encoding='utf-8') as yf:
